@@ -37,6 +37,7 @@ Local Universe is a dimension mining protocol on Solana.
 
 - [`Initialize`](program/src/initialize.rs) – Initializes program accounts.
 - [`SetAdmin`](program/src/set_admin.rs) – Re-assigns the admin authority.
+- [`FundTreasury`](program/src/fund_treasury.rs) – Funds the treasury with LUXITE for emissions.
 - [`Wrap`](program/src/wrap.rs) – Wraps SOL in the treasury for swap transactions.
 - [`Buyback`](program/src/buyback.rs) – Swaps WSOL for LUXITE, burns 90%, distributes 10% to stakers.
 
@@ -54,13 +55,11 @@ Local Universe is a dimension mining protocol on Solana.
 ## Tests
 
 To run the test suite, use the Solana toolchain:
-
 ```
 cargo test-sbf
 ```
 
 For line coverage, use llvm-cov:
-
 ```
 cargo llvm-cov
 ```
