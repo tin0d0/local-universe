@@ -62,12 +62,12 @@ pub fn process_deploy(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let is_new_miner = miner_info.data_is_empty();
 
     if is_new_miner {
-        create_account(
+        create_program_account::<Miner>(
             miner_info,
             system_program,
             signer_info,
-            std::mem::size_of::<Miner>() + 8,
             &localuniverse_api::ID,
+            &[MINER, &dimension_id.to_le_bytes(), signer_info.key.as_ref()],
         )?;
 
         let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;

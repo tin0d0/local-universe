@@ -106,6 +106,7 @@ pub fn claim_luxite(signer: Pubkey, dimension_id: u64) -> Instruction {
             AccountMeta::new(drill_address, false),
             AccountMeta::new_readonly(MINT_ADDRESS, false),
             AccountMeta::new(recipient_address, false),
+            AccountMeta::new(treasury_address, false),
             AccountMeta::new(treasury_tokens_address, false),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(spl_token::ID, false),
@@ -310,6 +311,28 @@ pub fn wrap(signer: Pubkey, amount: u64) -> Instruction {
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: Wrap {
+            amount: amount.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
+/// Builds a FundTreasury instruction (admin only).
+pub fn fund_treasury(signer: Pubkey, amount: u64) -> Instruction {
+    let treasury_address = treasury_pda().0;
+    let treasury_tokens_address = get_associated_token_address(&treasury_address, &MINT_ADDRESS);
+    let sender_address = get_associated_token_address(&signer, &MINT_ADDRESS);
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(MINT_ADDRESS, false),
+            AccountMeta::new(sender_address, false),
+            AccountMeta::new(treasury_address, false),
+            AccountMeta::new(treasury_tokens_address, false),
+            AccountMeta::new_readonly(spl_token::ID, false),
+        ],
+        data: FundTreasury {
             amount: amount.to_le_bytes(),
         }
         .to_bytes(),

@@ -42,6 +42,7 @@ async fn main() {
         "deposit" => deposit(&rpc, &payer).await.unwrap(),
         "withdraw" => withdraw(&rpc, &payer).await.unwrap(),
         "claim_yield" => claim_yield(&rpc, &payer).await.unwrap(),
+        "fund_treasury" => fund_treasury(&rpc, &payer).await.unwrap(),
         "keys" => keys().await.unwrap(),
         _ => panic!("Invalid command"),
     };
@@ -147,10 +148,6 @@ async fn log_drill(rpc: &RpcClient) -> Result<(), anyhow::Error> {
     println!(
         "  total_unclaimed: {} LUXITE",
         amount_to_ui_amount(drill.total_unclaimed, TOKEN_DECIMALS)
-    );
-    println!(
-        "  total_refined: {} LUXITE",
-        amount_to_ui_amount(drill.total_refined, TOKEN_DECIMALS)
     );
     Ok(())
 }
@@ -363,6 +360,18 @@ async fn claim_yield(
     let ix = localuniverse_api::sdk::claim_yield(payer.pubkey(), amount);
     submit_transaction(rpc, payer, &[ix]).await?;
     println!("Claimed {} LUXITE yield!", amount);
+    Ok(())
+}
+
+async fn fund_treasury(
+    rpc: &RpcClient,
+    payer: &solana_sdk::signer::keypair::Keypair,
+) -> Result<(), anyhow::Error> {
+    let amount = std::env::var("AMOUNT").expect("Missing AMOUNT env var");
+    let amount = u64::from_str(&amount).expect("Invalid AMOUNT");
+    let ix = localuniverse_api::sdk::fund_treasury(payer.pubkey(), amount);
+    submit_transaction(rpc, payer, &[ix]).await?;
+    println!("Funded treasury with {} LUXITE!", amount);
     Ok(())
 }
 

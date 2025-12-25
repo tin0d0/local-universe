@@ -1,4 +1,3 @@
-// lib.rs
 mod buyback;
 mod claim_luxite;
 mod claim_yield;
@@ -12,6 +11,7 @@ mod set_admin;
 mod tick;
 mod withdraw;
 mod wrap;
+mod fund_treasury;
 
 use buyback::*;
 use claim_luxite::*;
@@ -26,6 +26,7 @@ use set_admin::*;
 use tick::*;
 use withdraw::*;
 use wrap::*;
+use fund_treasury::*;
 
 use localuniverse_api::instruction::*;
 use solana_security_txt::security_txt;
@@ -61,6 +62,7 @@ pub fn process_instruction(
         LocalUniverseInstruction::SetAdmin => process_set_admin(accounts, data)?,
         LocalUniverseInstruction::Buyback => process_buyback(accounts, data)?,
         LocalUniverseInstruction::Wrap => process_wrap(accounts, data)?,
+        LocalUniverseInstruction::FundTreasury => process_fund_treasury(accounts, data)?,
     }
 
     Ok(())

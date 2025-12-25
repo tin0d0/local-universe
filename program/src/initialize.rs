@@ -44,13 +44,13 @@ pub fn process_initialize(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
     token_program.is_program(&spl_token::ID)?;
     associated_token_program.is_program(&spl_associated_token_account::ID)?;
 
-    // Create config
-    create_account(
+    // Create config PDA
+    create_program_account::<Config>(
         config_info,
         system_program,
         signer_info,
-        std::mem::size_of::<Config>() + 8,
         &localuniverse_api::ID,
+        &[CONFIG],
     )?;
 
     let config = config_info.as_account_mut::<Config>(&localuniverse_api::ID)?;
@@ -58,13 +58,13 @@ pub fn process_initialize(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
     config.fee_collector = ADMIN_FEE_COLLECTOR;
     config.scan_fee = DIMENSION_SCAN_FEE;
 
-    // Create grid
-    create_account(
+    // Create grid PDA
+    create_program_account::<Grid>(
         grid_info,
         system_program,
         signer_info,
-        std::mem::size_of::<Grid>() + 8,
         &localuniverse_api::ID,
+        &[GRID],
     )?;
 
     let grid = grid_info.as_account_mut::<Grid>(&localuniverse_api::ID)?;
@@ -73,13 +73,13 @@ pub fn process_initialize(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
     grid.end_slot = grid.start_slot + TICK_DURATION_SLOTS;
     grid.epoch_id = 0;
 
-    // Create treasury
-    create_account(
+    // Create treasury PDA
+    create_program_account::<Treasury>(
         treasury_info,
         system_program,
         signer_info,
-        std::mem::size_of::<Treasury>() + 8,
         &localuniverse_api::ID,
+        &[TREASURY],
     )?;
 
     let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;

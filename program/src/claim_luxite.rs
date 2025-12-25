@@ -59,6 +59,7 @@ pub fn process_claim_luxite(accounts: &[AccountInfo], _data: &[u8]) -> ProgramRe
 
     treasury_info
         .is_type::<Treasury>(&localuniverse_api::ID)?
+        .is_writable()?
         .has_seeds(&[TREASURY], &localuniverse_api::ID)?;
 
     treasury_tokens_info.as_associated_token_account(treasury_info.key, mint_info.key)?;
@@ -79,8 +80,9 @@ pub fn process_claim_luxite(accounts: &[AccountInfo], _data: &[u8]) -> ProgramRe
 
     let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
     let drill = drill_info.as_account_mut::<Drill>(&localuniverse_api::ID)?;
+    let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;
 
-    let amount = miner.claim_luxite(&clock, drill);
+    let amount = miner.claim_luxite(&clock, drill, treasury);
 
     if amount == 0 {
         return Ok(());

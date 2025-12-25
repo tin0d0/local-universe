@@ -38,7 +38,7 @@ pub const ONE_DAY_SLOTS: u64 = 24 * ONE_HOUR_SLOTS;
 pub const ONE_WEEK_SLOTS: u64 = 7 * ONE_DAY_SLOTS;
 
 /// The number of slots in one tick.
-pub const TICK_DURATION_SLOTS: u64 = 1500;
+pub const TICK_DURATION_SLOTS: u64 = ONE_MINUTE_SLOTS;
 
 /// The number of slots for breather between rounds.
 pub const INTERMISSION_SLOTS: u64 = 35;
@@ -93,11 +93,11 @@ pub const TREASURY_ADDRESS: Pubkey =
 /// The address of the treasury account.
 pub const TREASURY_BUMP: u8 = ed25519::derive_program_address(&[TREASURY], &PROGRAM_ID).1;
 
+/// Minimum SOL deployed for full hit rate (1 SOL in lamports)
+pub const MIN_DEPLOYED_FOR_FULL_RATE: u64 = 1_000_000_000;
+
 /// Denominator for fee calculations.
 pub const DENOMINATOR_BPS: u64 = 10_000;
-
-/// The fee paid to bots if they checkpoint a user.
-pub const CHECKPOINT_FEE: u64 = 10_000; // 0.00001 SOL
 
 /// Amount paid to bots per transaction for auto-compounding staking yield, in lamports.
 pub const COMPOUND_FEE_PER_TRANSACTION: u64 = 7_000;
@@ -113,9 +113,6 @@ pub const ADMIN_FEE_COLLECTOR: Pubkey = pubkey!("Eb3BaMhYbcgcuFUnxtEkVzeFMpppLyF
 
 /// The swap program used for buybacks.
 pub const SWAP_PROGRAM: Pubkey = pubkey!("JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4");
-
-/// The address of the var account.
-pub const VAR_ADDRESS: Pubkey = pubkey!("BWCaDY96Xe4WkFq1M7UiCCRcChsJ3p51L5KrGzhxgm2E");
 
 /// The address which can call the bury and wrap instructions.
 pub const BUYBACK_AUTHORITY: Pubkey = pubkey!("EXKfBEgkcaHTmAkuwaynrkRYf7LQ4YFKKhzPUJRJ4aGg");

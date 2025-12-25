@@ -1,7 +1,6 @@
 use steel::*;
 use localuniverse_api::{
     consts::*,
-    instruction::*,
     state::*,
     event::*,
 };

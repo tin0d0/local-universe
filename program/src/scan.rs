@@ -106,12 +106,12 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let clock = Clock::get()?;
 
     // Create dimension account
-    create_account(
+    create_program_account::<Dimension>(
         dimension_info,
         system_program,
         signer_info,
-        std::mem::size_of::<Dimension>() + 8,
         &localuniverse_api::ID,
+        &[DIMENSION, &dimension_id.to_le_bytes()],
     )?;
 
     let dimension = dimension_info.as_account_mut::<Dimension>(&localuniverse_api::ID)?;
@@ -122,12 +122,12 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     dimension.scanned_at = clock.unix_timestamp;
 
     // Create drill account
-    create_account(
+    create_program_account::<Drill>(
         drill_info,
         system_program,
         signer_info,
-        std::mem::size_of::<Drill>() + 8,
         &localuniverse_api::ID,
+        &[DRILL, &dimension_id.to_le_bytes()],
     )?;
 
     let drill = drill_info.as_account_mut::<Drill>(&localuniverse_api::ID)?;
@@ -140,12 +140,12 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 
     // Create navigator if needed
     if navigator_info.data_is_empty() {
-        create_account(
+        create_program_account::<Navigator>(
             navigator_info,
             system_program,
             signer_info,
-            std::mem::size_of::<Navigator>() + 8,
             &localuniverse_api::ID,
+            &[NAVIGATOR, signer_info.key.as_ref()],
         )?;
 
         let navigator = navigator_info.as_account_mut::<Navigator>(&localuniverse_api::ID)?;

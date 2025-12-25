@@ -36,11 +36,11 @@ pub struct Drill {
     /// Total unclaimed LUXITE rewards on this drill.
     pub total_unclaimed: u64,
 
-    /// Total refined LUXITE from claim fees.
-    pub total_refined: u64,
-
     /// Buffer a (placeholder).
     pub buffer_a: u64,
+
+    /// Buffer b (placeholder).
+    pub buffer_b: u64,
 }
 
 impl Drill {

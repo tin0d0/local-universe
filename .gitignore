@@ -12,3 +12,4 @@ config.json
 deployed-*.json
 id.json
 *-keypair.json
+LUX*

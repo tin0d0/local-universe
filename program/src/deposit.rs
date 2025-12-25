@@ -49,12 +49,12 @@ pub fn process_deposit(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     associated_token_program.is_program(&spl_associated_token_account::ID)?;
 
     let stake = if stake_info.data_is_empty() {
-        create_account(
+        create_program_account::<Stake>(
             stake_info,
             system_program,
             payer_info,
-            std::mem::size_of::<Stake>() + 8,
             &localuniverse_api::ID,
+            &[STAKE, signer_info.key.as_ref()],
         )?;
 
         let stake = stake_info.as_account_mut::<Stake>(&localuniverse_api::ID)?;

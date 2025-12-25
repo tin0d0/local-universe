@@ -2,7 +2,6 @@ use steel::*;
 use solana_program::sysvar::slot_hashes;
 use localuniverse_api::{
     consts::*,
-    instruction::*,
     state::*,
     event::*,
 };
@@ -22,17 +21,14 @@ pub fn process_excavate(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
-    // Validate signer
     signer_info.is_signer()?;
 
-    // Validate grid
     grid_info
         .is_type::<Grid>(&localuniverse_api::ID)?
         .has_seeds(&[GRID], &localuniverse_api::ID)?;
 
     let grid = grid_info.as_account::<Grid>(&localuniverse_api::ID)?;
 
-    // Validate dimension
     dimension_info
         .is_type::<Dimension>(&localuniverse_api::ID)?;
 
@@ -45,7 +41,6 @@ pub fn process_excavate(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult
         &localuniverse_api::ID,
     )?;
 
-    // Validate drill
     drill_info
         .is_type::<Drill>(&localuniverse_api::ID)?
         .is_writable()?
@@ -62,13 +57,14 @@ pub fn process_excavate(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult
         return Ok(());
     }
 
-    // Validate treasury
+    // Store deployed amount before mutating
+    let sol_deployed = drill.total_deployed;
+
     treasury_info
         .is_type::<Treasury>(&localuniverse_api::ID)?
         .is_writable()?
         .has_seeds(&[TREASURY], &localuniverse_api::ID)?;
 
-    // Validate slot hashes
     slot_hashes_info.has_address(&slot_hashes::ID)?;
 
     // Get slot hash for RNG
@@ -89,15 +85,31 @@ pub fn process_excavate(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult
         return Ok(());
     };
 
-    // Determine if drill hit based on richness
+    // Apply damper if below minimum SOL threshold
+    // Effective richness increases (harder to hit) when underfunded
+    let effective_richness = if sol_deployed >= MIN_DEPLOYED_FOR_FULL_RATE {
+        richness as u64
+    } else {
+        // Scale richness up proportionally (worse odds)
+        // At 0.5 SOL: richness doubled (half the hit chance)
+        // At 0.1 SOL: richness 10x (1/10th hit chance)
+        let scale = MIN_DEPLOYED_FOR_FULL_RATE
+            .checked_div(sol_deployed)
+            .unwrap_or(10);
+        let scaled = (richness as u64).saturating_mul(scale);
+        scaled.min(999_999_999) // Cap at 99.99% miss rate
+    };
+
+    // Determine if drill hit based on effective richness
     let roll = rng % 1_000_000_000;
-    let did_hit = roll > richness as u64;
+    let did_hit = roll > effective_richness;
 
     let mut luxite_distributed: u64 = 0;
 
-    if did_hit {
-        let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;
+    // Update treasury
+    let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;
 
+    if did_hit {
         let tick_emission = treasury.luxite_balance
             .checked_mul(TICK_EMISSION_BPS)
             .unwrap_or(0)
@@ -105,24 +117,32 @@ pub fn process_excavate(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult
             .unwrap_or(0);
 
         if tick_emission > 0 && treasury.luxite_balance >= tick_emission {
+            luxite_distributed = tick_emission;
             treasury.luxite_balance -= tick_emission;
             treasury.total_emitted += tick_emission;
+            treasury.total_unclaimed += tick_emission;
 
-            // Distribute to drill using rewards_factor
-            drill.rewards_factor += Numeric::from_fraction(tick_emission, drill.total_deployed);
+            drill.rewards_factor += Numeric::from_fraction(tick_emission, sol_deployed);
             drill.total_unclaimed += tick_emission;
             drill.lifetime_rewards_luxite += tick_emission;
         }
     }
 
-    // Emit excavate event
+    // Transfer SOL from drill to treasury
+    drill_info.send(sol_deployed, treasury_info);
+    treasury.sol_balance += sol_deployed;
+
+    // Reset drill deployed for next tick
+    drill.total_deployed = 0;
+    drill.miner_count = 0;
+
     ExcavateEvent {
         disc: LocalUniverseEvent::Excavate as u64,
         dimension_id,
         tick_id: previous_tick,
         richness: richness as u64,
         luxite_distributed,
-        total_deployed: drill.total_deployed,
+        total_deployed: sol_deployed,
         miner_count: drill.miner_count,
         depth: drill.depth,
         ts: clock.unix_timestamp,
