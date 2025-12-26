@@ -19,12 +19,20 @@ Local Universe is a dimension mining protocol on Solana.
 #### Drill
 
 - [`Tick`](program/src/tick.rs) – Advances the global tick.
-- [`Excavate`](program/src/excavate.rs) – Processes a drill for the current tick, determining if it hit LUXITE.
+- [`Excavate`](program/src/excavate.rs) – Processes an excavation for the previous tick, determining hit or miss.
 
 #### Mining
 
-- [`Deploy`](program/src/deploy.rs) – Deploys SOL to a drill on a dimension.
+- [`Deploy`](program/src/deploy.rs) – Deploys SOL to a dimension's excavation.
+- [`Checkpoint`](program/src/checkpoint.rs) – Claims rewards from a processed excavation.
+- [`ClaimSOL`](program/src/claim_sol.rs) – Claims pending SOL rewards.
 - [`ClaimLUXITE`](program/src/claim_luxite.rs) – Claims pending LUXITE mining rewards.
+- [`Close`](program/src/close.rs) – Closes an expired excavation and reclaims rent.
+
+#### Automation
+
+- [`Automate`](program/src/automate.rs) – Sets up automation for hands-free mining.
+- [`ReloadSOL`](program/src/reload_sol.rs) – Reloads SOL winnings back into automation balance.
 
 #### Staking
 
@@ -46,9 +54,11 @@ Local Universe is a dimension mining protocol on Solana.
 - [`Config`](api/src/state/config.rs) – Global program configuration.
 - [`Grid`](api/src/state/grid.rs) – Tracks the current tick and timestamps.
 - [`Dimension`](api/src/state/dimension.rs) – A discovered dimension with its richness score.
-- [`Drill`](api/src/state/drill.rs) – A drill deployed on a dimension, tracking mining activity.
+- [`Drill`](api/src/state/drill.rs) – Global stats for a dimension's mining activity.
+- [`Excavation`](api/src/state/excavation.rs) – A single tick's mining event on a dimension.
 - [`Navigator`](api/src/state/navigator.rs) – A user's global profile across all dimensions.
-- [`Miner`](api/src/state/miner.rs) – A user's mining position on a specific drill.
+- [`Miner`](api/src/state/miner.rs) – A user's mining position on a specific dimension.
+- [`Automation`](api/src/state/automation.rs) – Automation settings for hands-free mining.
 - [`Stake`](api/src/state/stake.rs) – Manages a user's staking activity.
 - [`Treasury`](api/src/state/treasury.rs) – Manages LUXITE emissions, buybacks, and burns.
 

@@ -8,10 +8,7 @@ KEYPAIR ?= ~/.config/solana/id.json
 RPC_DEVNET = https://api.devnet.solana.com
 RPC_MAINNET = https://api.mainnet-beta.solana.com
 
-# Default to devnet
-RPC ?= $(RPC_DEVNET)
-
-CLI = KEYPAIR=$(KEYPAIR) RPC=$(RPC) ./target/release/localuniverse-cli
+CLI = KEYPAIR=$(KEYPAIR) ./target/release/localuniverse-cli
 
 # ============================================================================
 # Build
@@ -26,22 +23,6 @@ build-cli:
 
 build-program:
 	cargo build-sbf
-
-# ============================================================================
-# Deploy
-# ============================================================================
-
-deploy-devnet:
-	solana program deploy \
-		--url devnet \
-		target/deploy/localuniverse_program.so \
-		--program-id LUXcEf35hqyZQEkUkSWjxk19YfsoeRf1AduPPyQvRBm.json
-
-deploy-mainnet:
-	solana program deploy \
-		--url mainnet-beta \
-		target/deploy/localuniverse_program.so \
-		--program-id LUXcEf35hqyZQEkUkSWjxk19YfsoeRf1AduPPyQvRBm.json
 
 # ============================================================================
 # Devnet Commands
