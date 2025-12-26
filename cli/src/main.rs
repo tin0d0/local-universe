@@ -808,7 +808,12 @@ async fn submit_transaction(
         blockhash,
     );
 
-    match rpc.send_and_confirm_transaction(&transaction).await {
+    let config = solana_client::rpc_config::RpcSendTransactionConfig {
+        skip_preflight: true,
+        ..Default::default()
+    };
+
+    match rpc.send_transaction_with_config(&transaction, config).await {
         Ok(signature) => {
             println!("Transaction: {}", signature);
             Ok(signature)
