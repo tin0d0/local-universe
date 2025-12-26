@@ -6,8 +6,9 @@ use localuniverse_api::{
 };
 
 /// Swaps SOL for LUXITE, burns 90%, distributes 10% to stakers.
+/// Takes 1% admin fee from SOL before swap.
 pub fn process_buyback(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
-    let (lu_accounts, swap_accounts) = accounts.split_at(9);
+    let (lu_accounts, swap_accounts) = accounts.split_at(10);
 
     let [
         signer_info,
@@ -17,6 +18,7 @@ pub fn process_buyback(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         treasury_info,
         treasury_luxite_info,
         treasury_sol_info,
+        admin_fee_info,
         token_program,
         localuniverse_program,
     ] = lu_accounts else {
@@ -47,6 +49,11 @@ pub fn process_buyback(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     treasury_sol_info
         .as_associated_token_account(treasury_info.key, &SOL_MINT)?;
 
+    // Validate admin fee collector
+    admin_fee_info
+        .is_writable()?
+        .has_address(&ADMIN_FEE_COLLECTOR)?;
+
     // Validate programs
     token_program.is_program(&spl_token::ID)?;
     localuniverse_program.is_program(&localuniverse_api::ID)?;
@@ -58,8 +65,24 @@ pub fn process_buyback(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let treasury_sol = treasury_sol_info
         .as_associated_token_account(treasury_info.key, &SOL_MINT)?;
     let pre_swap_luxite_balance = treasury_luxite.amount();
-    let pre_swap_sol_balance = treasury_sol.amount();
-    assert!(pre_swap_sol_balance > 0);
+    let total_sol = treasury_sol.amount();
+    assert!(total_sol > 0);
+
+    // Calculate 1% admin fee
+    let admin_fee = total_sol / 100;
+    let swap_sol = total_sol - admin_fee;
+
+    // Transfer admin fee (WSOL to admin)
+    if admin_fee > 0 {
+        transfer_signed(
+            treasury_info,
+            treasury_sol_info,
+            admin_fee_info,
+            token_program,
+            admin_fee,
+            &[TREASURY],
+        )?;
+    }
 
     // Record pre-swap mint supply
     let pre_swap_mint_supply = luxite_mint.supply();
@@ -151,7 +174,7 @@ pub fn process_buyback(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         disc: LocalUniverseEvent::Buyback as u64,
         luxite_burned: burn_amount,
         luxite_shared: shared_amount,
-        sol_amount: pre_swap_sol_balance,
+        sol_amount: swap_sol,
         new_circulating_supply: mint_info.as_mint()?.supply(),
         ts: clock.unix_timestamp,
     }

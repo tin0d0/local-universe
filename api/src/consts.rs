@@ -52,6 +52,9 @@ pub const MAX_SUPPLY: u64 = ONE_LUXITE * 1_000_000_000;
 /// The seed of the config account PDA.
 pub const CONFIG: &[u8] = b"config";
 
+/// Seed for automation PDA.
+pub const AUTOMATION: &[u8] = b"automation";
+
 /// The seed of the grid account PDA.
 pub const GRID: &[u8] = b"grid";
 
@@ -60,6 +63,9 @@ pub const DIMENSION: &[u8] = b"dimension";
 
 /// The seed of the drill account PDA.
 pub const DRILL: &[u8] = b"drill";
+
+/// Seed for excavation PDA.
+pub const EXCAVATION: &[u8] = b"excavation";
 
 /// The seed of the drill account PDA.
 pub const NAVIGATOR: &[u8] = b"navigator";
@@ -93,11 +99,17 @@ pub const TREASURY_ADDRESS: Pubkey =
 /// The address of the treasury account.
 pub const TREASURY_BUMP: u8 = ed25519::derive_program_address(&[TREASURY], &PROGRAM_ID).1;
 
-/// Minimum SOL deployed for full hit rate (1 SOL in lamports)
-pub const MIN_DEPLOYED_FOR_FULL_RATE: u64 = 1_000_000_000;
+/// Minimum SOL deployed for full hit rate (0.1 SOL in lamports)
+pub const MIN_DEPLOYED_FOR_FULL_RATE: u64 = 100_000_000;
 
-/// Denominator for fee calculations.
+/// The fee paid to bots if they checkpoint a user.
+pub const CHECKPOINT_FEE: u64 = 10_000; // 0.00001 SOL
+
+/// Denominator for basis point calculations (100% = 10,000 bps).
 pub const DENOMINATOR_BPS: u64 = 10_000;
+
+/// Fee charged on SOL deployment in basis points (1% = 100 bps).
+pub const DEPLOY_FEE_BPS: u64 = 100;
 
 /// Amount paid to bots per transaction for auto-compounding staking yield, in lamports.
 pub const COMPOUND_FEE_PER_TRANSACTION: u64 = 7_000;

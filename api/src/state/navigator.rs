@@ -15,6 +15,9 @@ pub struct Navigator {
     /// Lifetime LUXITE earned across all dimensions.
     pub lifetime_rewards_luxite: u64,
 
+    /// Lifetime SOL earned across all dimensions.
+    pub lifetime_rewards_sol: u64,
+
     /// Lifetime SOL deployed across all dimensions.
     pub lifetime_deployed: u64,
 

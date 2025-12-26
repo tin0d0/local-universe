@@ -6,19 +6,26 @@ pub enum LocalUniverseInstruction {
     // Dimension
     Scan = 0,
 
-    // Drill
+    // Drill (global clock + processing)
     Tick = 10,
     Excavate = 11,
 
     // Miner
     Deploy = 20,
+    Checkpoint = 21,
     ClaimLUXITE = 22,
+    ClaimSOL = 23,
+    Close = 24,
 
     // Staker
     Deposit = 30,
     Withdraw = 31,
     ClaimYield = 32,
     CompoundYield = 33,
+
+    // Automation
+    Automate = 40,
+    ReloadSOL = 41,
 
     // Admin
     Initialize = 100,
@@ -40,13 +47,29 @@ pub struct Tick {}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct Excavate {}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct Deploy {
     pub amount: [u8; 8],
 }
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct Checkpoint {}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
 pub struct ClaimLUXITE {}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct ClaimSOL {}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct Close {}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -73,7 +96,19 @@ pub struct CompoundYield {}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
-pub struct Excavate {}
+pub struct Automate {
+    pub dimension_id: [u8; 8],
+    pub amount: [u8; 8],
+    pub deposit: [u8; 8],
+    pub fee: [u8; 8],
+    pub reload: [u8; 8],
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct ReloadSOL {
+    pub dimension_id: [u8; 8],
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Pod, Zeroable)]
@@ -103,13 +138,18 @@ pub struct FundTreasury {
 
 instruction!(LocalUniverseInstruction, Scan);
 instruction!(LocalUniverseInstruction, Tick);
+instruction!(LocalUniverseInstruction, Excavate);
 instruction!(LocalUniverseInstruction, Deploy);
+instruction!(LocalUniverseInstruction, Checkpoint);
 instruction!(LocalUniverseInstruction, ClaimLUXITE);
+instruction!(LocalUniverseInstruction, ClaimSOL);
+instruction!(LocalUniverseInstruction, Close);
 instruction!(LocalUniverseInstruction, Deposit);
 instruction!(LocalUniverseInstruction, Withdraw);
 instruction!(LocalUniverseInstruction, ClaimYield);
 instruction!(LocalUniverseInstruction, CompoundYield);
-instruction!(LocalUniverseInstruction, Excavate);
+instruction!(LocalUniverseInstruction, Automate);
+instruction!(LocalUniverseInstruction, ReloadSOL);
 instruction!(LocalUniverseInstruction, Initialize);
 instruction!(LocalUniverseInstruction, SetAdmin);
 instruction!(LocalUniverseInstruction, Wrap);

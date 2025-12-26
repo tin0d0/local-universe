@@ -1,5 +1,6 @@
 use steel::*;
 use solana_program::sysvar::slot_hashes;
+
 use localuniverse_api::{
     consts::*,
     instruction::*,
@@ -7,20 +8,14 @@ use localuniverse_api::{
     event::*,
 };
 
+/// Scans to discover a new dimension. Creates Dimension and Drill accounts.
 pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let args = Scan::try_from_bytes(data)?;
     let dimension_id = u64::from_le_bytes(args.dimension_id);
 
-    let [
-        signer_info,
-        config_info,
-        dimension_info,
-        drill_info,
-        navigator_info,
-        fee_collector_info,
-        system_program,
-        slot_hashes_info,
-    ] = accounts else {
+    let [signer_info, config_info, dimension_info, drill_info, navigator_info, fee_collector_info, system_program, slot_hashes_info] =
+        accounts
+    else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
@@ -73,34 +68,48 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     // Generate richness from slot hash
     let slot_hashes_data = slot_hashes_info.try_borrow_data()?;
     let hash_start = 8 + 8;
-    let random_bytes = &slot_hashes_data[hash_start..hash_start + 4];
 
-    let random_u32 = u32::from_le_bytes([
-        random_bytes[0],
-        random_bytes[1],
-        random_bytes[2],
-        random_bytes[3],
+    // Use different parts of the hash for tier vs range
+    let tier_bytes = &slot_hashes_data[hash_start..hash_start + 4];
+    let range_bytes = &slot_hashes_data[hash_start + 4..hash_start + 8];
+
+    let tier_roll = u32::from_le_bytes([
+        tier_bytes[0],
+        tier_bytes[1],
+        tier_bytes[2],
+        tier_bytes[3],
+    ]) % 10000;
+
+    let range_roll = u32::from_le_bytes([
+        range_bytes[0],
+        range_bytes[1],
+        range_bytes[2],
+        range_bytes[3],
     ]);
 
-    let roll = random_u32 % 10000;
-
-    let richness: u32 = if roll < 8000 {
-        let range_roll = random_u32 % 250_000_001;
-        750_000_000 + range_roll
-    } else if roll < 9500 {
-        let range_roll = random_u32 % 250_000_001;
-        500_000_000 + range_roll
-    } else if roll < 9900 {
-        let range_roll = random_u32 % 250_000_001;
-        250_000_000 + range_roll
-    } else if roll < 9990 {
-        let range_roll = random_u32 % 150_000_001;
-        100_000_000 + range_roll
-    } else if roll < 9999 {
-        let range_roll = random_u32 % 80_000_001;
-        20_000_000 + range_roll
+    // Richness determines hit chance (higher = harder to hit)
+    // Roll must be > richness to hit, so:
+    // - richness 900M = 10% hit chance
+    // - richness 500M = 50% hit chance  
+    // - richness 100M = 90% hit chance
+    let richness: u32 = if tier_roll < 8000 {
+        // 80% of dimensions: 750M-1B richness (0-25% hit chance)
+        750_000_000 + (range_roll % 250_000_001)
+    } else if tier_roll < 9500 {
+        // 15% of dimensions: 500M-750M richness (25-50% hit chance)
+        500_000_000 + (range_roll % 250_000_001)
+    } else if tier_roll < 9900 {
+        // 4% of dimensions: 250M-500M richness (50-75% hit chance)
+        250_000_000 + (range_roll % 250_000_001)
+    } else if tier_roll < 9990 {
+        // 0.9% of dimensions: 100M-250M richness (75-90% hit chance)
+        100_000_000 + (range_roll % 150_000_001)
+    } else if tier_roll < 9999 {
+        // 0.09% of dimensions: 20M-100M richness (90-98% hit chance)
+        20_000_000 + (range_roll % 80_000_001)
     } else {
-        random_u32 % 20_000_001
+        // 0.01% of dimensions: 0-20M richness (98-100% hit chance)
+        range_roll % 20_000_001
     };
 
     let clock = Clock::get()?;
@@ -121,7 +130,7 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     dimension.richness = richness;
     dimension.scanned_at = clock.unix_timestamp;
 
-    // Create drill account
+    // Create drill account (lifetime stats only)
     create_program_account::<Drill>(
         drill_info,
         system_program,
@@ -132,11 +141,13 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 
     let drill = drill_info.as_account_mut::<Drill>(&localuniverse_api::ID)?;
     drill.dimension_id = dimension_id;
-    drill.total_deployed = 0;
-    drill.miner_count = 0;
     drill.depth = 0;
-    drill.tick_id = 0;
-    drill.slot_hash = [0u8; 32];
+    drill.lifetime_deployed = 0;
+    drill.lifetime_rewards_luxite = 0;
+    drill.buffer_a = 0;
+    drill.buffer_b = 0;
+    drill.buffer_c = 0;
+    drill.buffer_d = 0;
 
     // Create navigator if needed
     if navigator_info.data_is_empty() {
@@ -152,9 +163,11 @@ pub fn process_scan(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
         navigator.authority = *signer_info.key;
         navigator.lifetime_dimensions_discovered = 1;
         navigator.lifetime_rewards_luxite = 0;
+        navigator.lifetime_rewards_sol = 0;
         navigator.lifetime_deployed = 0;
         navigator.created_at = clock.unix_timestamp;
     } else {
+        navigator_info.is_type::<Navigator>(&localuniverse_api::ID)?;
         let navigator = navigator_info.as_account_mut::<Navigator>(&localuniverse_api::ID)?;
         navigator.lifetime_dimensions_discovered += 1;
     }

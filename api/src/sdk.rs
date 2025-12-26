@@ -2,11 +2,7 @@ use solana_program::pubkey::Pubkey;
 use spl_associated_token_account::get_associated_token_address;
 use steel::*;
 
-use crate::{
-    consts::*,
-    instruction::*,
-    state::*,
-};
+use crate::{consts::*, instruction::*, state::*};
 
 /// Builds a Scan instruction to discover a new dimension.
 pub fn scan(signer: Pubkey, dimension_id: u64) -> Instruction {
@@ -33,20 +29,38 @@ pub fn scan(signer: Pubkey, dimension_id: u64) -> Instruction {
     }
 }
 
-/// Builds a Deploy instruction to add SOL to a drill.
-pub fn deploy(signer: Pubkey, dimension_id: u64, amount: u64) -> Instruction {
-    let grid_address = grid_pda().0;
-    let drill_address = drill_pda(dimension_id).0;
-    let miner_address = miner_pda(dimension_id, signer).0;
-    let navigator_address = navigator_pda(signer).0;
+/// Builds a Deploy instruction.
+/// If automation exists, pass authority separately from signer.
+/// If no automation, signer and authority should be the same.
+pub fn deploy(
+    signer: Pubkey,
+    authority: Pubkey,
+    dimension_id: u64,
+    tick_id: u64,
+    amount: u64,
+) -> Instruction {
+    let automation_address = automation_pda(authority, dimension_id).0;
+    let grid = grid_pda().0;
+    let dimension = dimension_pda(dimension_id).0;
+    let drill = drill_pda(dimension_id).0;
+    let excavation = excavation_pda(dimension_id, tick_id).0;
+    let miner = miner_pda(dimension_id, authority).0;
+    let navigator = navigator_pda(authority).0;
+    let treasury = treasury_pda().0;
+
     Instruction {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(signer, true),
-            AccountMeta::new(grid_address, false),
-            AccountMeta::new(drill_address, false),
-            AccountMeta::new(miner_address, false),
-            AccountMeta::new(navigator_address, false),
+            AccountMeta::new(authority, false),
+            AccountMeta::new(automation_address, false),
+            AccountMeta::new_readonly(grid, false),
+            AccountMeta::new_readonly(dimension, false),
+            AccountMeta::new(drill, false),
+            AccountMeta::new(excavation, false),
+            AccountMeta::new(miner, false),
+            AccountMeta::new(navigator, false),
+            AccountMeta::new(treasury, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: Deploy {
@@ -69,12 +83,14 @@ pub fn tick(signer: Pubkey) -> Instruction {
     }
 }
 
-/// Builds an Excavate instruction to process a drill for the current tick.
-pub fn excavate(signer: Pubkey, dimension_id: u64) -> Instruction {
+/// Builds an Excavate instruction to process the previous tick's excavation.
+pub fn excavate(signer: Pubkey, dimension_id: u64, previous_tick_id: u64) -> Instruction {
     let grid_address = grid_pda().0;
     let dimension_address = dimension_pda(dimension_id).0;
     let drill_address = drill_pda(dimension_id).0;
+    let excavation_address = excavation_pda(dimension_id, previous_tick_id).0;
     let treasury_address = treasury_pda().0;
+
     Instruction {
         program_id: crate::ID,
         accounts: vec![
@@ -82,6 +98,7 @@ pub fn excavate(signer: Pubkey, dimension_id: u64) -> Instruction {
             AccountMeta::new_readonly(grid_address, false),
             AccountMeta::new_readonly(dimension_address, false),
             AccountMeta::new(drill_address, false),
+            AccountMeta::new(excavation_address, false),
             AccountMeta::new(treasury_address, false),
             AccountMeta::new_readonly(sysvar::slot_hashes::ID, false),
         ],
@@ -89,21 +106,65 @@ pub fn excavate(signer: Pubkey, dimension_id: u64) -> Instruction {
     }
 }
 
+/// Builds a Checkpoint instruction to claim rewards after excavation is processed.
+/// Can be called by the miner themselves, or by a bot (who earns checkpoint fee if in window).
+pub fn checkpoint(
+    signer: Pubkey,
+    authority: Pubkey,
+    dimension_id: u64,
+    excavation_id: u64,
+) -> Instruction {
+    let grid_address = grid_pda().0;
+    let excavation_address = excavation_pda(dimension_id, excavation_id).0;
+    let miner_address = miner_pda(dimension_id, authority).0;
+    let treasury_address = treasury_pda().0;
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(grid_address, false),
+            AccountMeta::new(excavation_address, false),
+            AccountMeta::new(miner_address, false),
+            AccountMeta::new(treasury_address, false),
+        ],
+        data: Checkpoint {}.to_bytes(),
+    }
+}
+
+/// Builds a Close instruction to close an expired excavation and reclaim rent.
+pub fn close(signer: Pubkey, dimension_id: u64, tick_id: u64, rent_payer: Pubkey) -> Instruction {
+    let grid_address = grid_pda().0;
+    let excavation_address = excavation_pda(dimension_id, tick_id).0;
+    let treasury_address = treasury_pda().0;
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new_readonly(grid_address, false),
+            AccountMeta::new(excavation_address, false),
+            AccountMeta::new(rent_payer, false),
+            AccountMeta::new(treasury_address, false),
+        ],
+        data: Close {}.to_bytes(),
+    }
+}
+
 /// Builds a ClaimLUXITE instruction to claim pending mining rewards.
 pub fn claim_luxite(signer: Pubkey, dimension_id: u64) -> Instruction {
     let miner_address = miner_pda(dimension_id, signer).0;
     let navigator_address = navigator_pda(signer).0;
-    let drill_address = drill_pda(dimension_id).0;
     let treasury_address = treasury_pda().0;
     let treasury_tokens_address = get_associated_token_address(&treasury_address, &MINT_ADDRESS);
     let recipient_address = get_associated_token_address(&signer, &MINT_ADDRESS);
+
     Instruction {
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(signer, true),
             AccountMeta::new(miner_address, false),
             AccountMeta::new(navigator_address, false),
-            AccountMeta::new(drill_address, false),
             AccountMeta::new_readonly(MINT_ADDRESS, false),
             AccountMeta::new(recipient_address, false),
             AccountMeta::new(treasury_address, false),
@@ -113,6 +174,22 @@ pub fn claim_luxite(signer: Pubkey, dimension_id: u64) -> Instruction {
             AccountMeta::new_readonly(spl_associated_token_account::ID, false),
         ],
         data: ClaimLUXITE {}.to_bytes(),
+    }
+}
+
+/// Builds a ClaimSOL instruction to claim pending SOL rewards.
+pub fn claim_sol(signer: Pubkey, dimension_id: u64) -> Instruction {
+    let miner_address = miner_pda(dimension_id, signer).0;
+    let navigator_address = navigator_pda(signer).0;
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(miner_address, false),
+            AccountMeta::new(navigator_address, false),
+        ],
+        data: ClaimSOL {}.to_bytes(),
     }
 }
 
@@ -228,6 +305,7 @@ pub fn buyback(signer: Pubkey, swap_accounts: &[AccountMeta], swap_data: &[u8]) 
     let treasury_address = treasury_pda().0;
     let treasury_luxite_address = get_associated_token_address(&treasury_address, &MINT_ADDRESS);
     let treasury_sol_address = get_associated_token_address(&treasury_address, &SOL_MINT);
+    let admin_fee_address = get_associated_token_address(&ADMIN_FEE_COLLECTOR, &SOL_MINT);
 
     let mut accounts = vec![
         AccountMeta::new(signer, true),
@@ -237,6 +315,7 @@ pub fn buyback(signer: Pubkey, swap_accounts: &[AccountMeta], swap_data: &[u8]) 
         AccountMeta::new(treasury_address, false),
         AccountMeta::new(treasury_luxite_address, false),
         AccountMeta::new(treasury_sol_address, false),
+        AccountMeta::new(admin_fee_address, false),
         AccountMeta::new_readonly(spl_token::ID, false),
         AccountMeta::new_readonly(crate::ID, false),
     ];
@@ -254,6 +333,61 @@ pub fn buyback(signer: Pubkey, swap_accounts: &[AccountMeta], swap_data: &[u8]) 
         program_id: crate::ID,
         accounts,
         data,
+    }
+}
+
+/// Builds an Automate instruction to setup automation for a dimension.
+/// Pass executor = Pubkey::default() to close automation and withdraw balance.
+pub fn automate(
+    signer: Pubkey,
+    executor: Pubkey,
+    dimension_id: u64,
+    amount: u64,
+    deposit: u64,
+    fee: u64,
+    reload: bool,
+) -> Instruction {
+    let automation_address = automation_pda(signer, dimension_id).0;
+    let miner_address = miner_pda(dimension_id, signer).0;
+    let dimension_address = dimension_pda(dimension_id).0;
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(automation_address, false),
+            AccountMeta::new_readonly(executor, false),
+            AccountMeta::new(miner_address, false),
+            AccountMeta::new_readonly(dimension_address, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: Automate {
+            dimension_id: dimension_id.to_le_bytes(),
+            amount: amount.to_le_bytes(),
+            deposit: deposit.to_le_bytes(),
+            fee: fee.to_le_bytes(),
+            reload: (reload as u64).to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}
+
+/// Builds a ReloadSOL instruction to move SOL winnings back to automation balance.
+pub fn reload_sol(signer: Pubkey, authority: Pubkey, dimension_id: u64) -> Instruction {
+    let automation_address = automation_pda(authority, dimension_id).0;
+    let miner_address = miner_pda(dimension_id, authority).0;
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(automation_address, false),
+            AccountMeta::new(miner_address, false),
+        ],
+        data: ReloadSOL {
+            dimension_id: dimension_id.to_le_bytes(),
+        }
+        .to_bytes(),
     }
 }
 

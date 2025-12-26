@@ -1,25 +1,17 @@
 use steel::*;
+
 use localuniverse_api::{
     consts::*,
     state::*,
 };
 
+/// Claims pending LUXITE rewards for a miner.
 pub fn process_claim_luxite(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult {
     let clock = Clock::get()?;
 
-    let [
-        signer_info,
-        miner_info,
-        navigator_info,
-        drill_info,
-        mint_info,
-        recipient_info,
-        treasury_info,
-        treasury_tokens_info,
-        system_program,
-        token_program,
-        associated_token_program,
-    ] = accounts else {
+    let [signer_info, miner_info, navigator_info, mint_info, recipient_info, treasury_info, treasury_tokens_info, system_program, token_program, associated_token_program] =
+        accounts
+    else {
         return Err(ProgramError::NotEnoughAccountKeys);
     };
 
@@ -47,14 +39,6 @@ pub fn process_claim_luxite(accounts: &[AccountInfo], _data: &[u8]) -> ProgramRe
             &localuniverse_api::ID,
         )?;
 
-    drill_info
-        .is_type::<Drill>(&localuniverse_api::ID)?
-        .is_writable()?
-        .has_seeds(
-            &[DRILL, &dimension_id.to_le_bytes()],
-            &localuniverse_api::ID,
-        )?;
-
     mint_info.has_address(&MINT_ADDRESS)?;
 
     treasury_info
@@ -64,6 +48,7 @@ pub fn process_claim_luxite(accounts: &[AccountInfo], _data: &[u8]) -> ProgramRe
 
     treasury_tokens_info.as_associated_token_account(treasury_info.key, mint_info.key)?;
 
+    // Create recipient token account if needed
     if recipient_info.data_is_empty() {
         create_associated_token_account(
             signer_info,
@@ -78,19 +63,21 @@ pub fn process_claim_luxite(accounts: &[AccountInfo], _data: &[u8]) -> ProgramRe
         recipient_info.as_associated_token_account(signer_info.key, mint_info.key)?;
     }
 
+    // Claim rewards
     let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
-    let drill = drill_info.as_account_mut::<Drill>(&localuniverse_api::ID)?;
     let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;
 
-    let amount = miner.claim_luxite(&clock, drill, treasury);
+    let amount = miner.claim_luxite(&clock, treasury);
 
     if amount == 0 {
         return Ok(());
     }
 
+    // Update navigator lifetime stats
     let navigator = navigator_info.as_account_mut::<Navigator>(&localuniverse_api::ID)?;
     navigator.lifetime_rewards_luxite += amount;
 
+    // Transfer LUXITE from treasury to recipient
     transfer_signed(
         treasury_info,
         treasury_tokens_info,
