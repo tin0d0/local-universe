@@ -33,7 +33,6 @@ pub fn process_checkpoint(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
         &localuniverse_api::ID,
     )?;
 
-    // Already checkpointed
     if miner.checkpoint_id == miner.excavation_id {
         return Ok(());
     }
@@ -48,7 +47,6 @@ pub fn process_checkpoint(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
         .is_writable()?
         .has_seeds(&[TREASURY], &localuniverse_api::ID)?;
 
-    // Excavation account closed - miner forfeits rewards
     if excavation_info.data_is_empty() {
         sol_log("Excavation closed, forfeiting rewards");
         let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
@@ -61,13 +59,22 @@ pub fn process_checkpoint(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
 
     let excavation = excavation_info.as_account::<Excavation>(&localuniverse_api::ID)?;
 
-    // Excavation is current tick or not yet processed
+    // Stale unprocessed excavation - can never be processed, forfeit rewards
+    let is_stale = !excavation.is_processed() && excavation.id + 1 < grid.tick_id;
+    if is_stale {
+        sol_log("Excavation stale (unprocessed), forfeiting rewards");
+        let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
+        miner.checkpoint_id = miner.excavation_id;
+        miner.deployed = 0;
+        return Ok(());
+    }
+
+    // Current tick or pending processing - wait
     if excavation.id == grid.tick_id || !excavation.is_processed() {
         sol_log("Excavation not yet processed");
         return Ok(());
     }
 
-    // Excavation expired - miner forfeits rewards
     if clock.slot >= excavation.expires_at {
         sol_log("Excavation expired, forfeiting rewards");
         let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
@@ -79,7 +86,6 @@ pub fn process_checkpoint(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
     let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
     let deployed = miner.deployed;
 
-    // Calculate bot fee (if within 12 hours of expiry and signer is not authority)
     let mut bot_fee: u64 = 0;
     let is_bot = *signer_info.key != miner.authority;
     let in_bot_window = clock.slot >= excavation.expires_at.saturating_sub(TWELVE_HOURS_SLOTS);
@@ -89,42 +95,33 @@ pub fn process_checkpoint(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResu
         miner.checkpoint_fee = 0;
     }
 
-    // Calculate rewards
     let mut rewards_sol: u64 = 0;
     let mut rewards_luxite: u64 = 0;
 
     if excavation.hit() && deployed > 0 {
-        // SOL return (1:1)
         rewards_sol = deployed;
 
-        // LUXITE share (proportional to deployed)
         if excavation.luxite_distributed > 0 && excavation.total_deployed > 0 {
             rewards_luxite = ((excavation.luxite_distributed as u128 * deployed as u128)
                 / excavation.total_deployed as u128) as u64;
         }
     }
 
-    // Update claim fee redistribution BEFORE adding new rewards
     let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;
     miner.update_rewards(treasury);
 
-    // Mark checkpointed
     miner.checkpoint_id = miner.excavation_id;
     miner.deployed = 0;
 
-    // Add rewards
     miner.rewards_sol += rewards_sol;
     miner.rewards_luxite += rewards_luxite;
 
-    // Track unclaimed LUXITE globally
     treasury.total_unclaimed += rewards_luxite;
 
-    // Transfer SOL from excavation to miner
     if rewards_sol > 0 {
         excavation_info.send(rewards_sol, miner_info);
     }
 
-    // Pay bot fee
     if bot_fee > 0 {
         miner_info.send(bot_fee, signer_info);
     }

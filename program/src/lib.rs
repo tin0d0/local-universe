@@ -17,6 +17,7 @@ mod set_admin;
 mod tick;
 mod withdraw;
 mod wrap;
+mod set_scan_fee;
 
 use automate::*;
 use buyback::*;
@@ -37,6 +38,7 @@ use set_admin::*;
 use tick::*;
 use withdraw::*;
 use wrap::*;
+use set_scan_fee::*;
 
 use localuniverse_api::instruction::LocalUniverseInstruction;
 use solana_security_txt::security_txt;
@@ -80,6 +82,7 @@ pub fn process_instruction(
         LocalUniverseInstruction::Buyback => process_buyback(accounts, data),
         LocalUniverseInstruction::Wrap => process_wrap(accounts, data),
         LocalUniverseInstruction::FundTreasury => process_fund_treasury(accounts, data),
+        LocalUniverseInstruction::SetScanFee => process_set_scan_fee(accounts, data),
     }
 }
 

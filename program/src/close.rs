@@ -6,7 +6,7 @@ use localuniverse_api::{
     state::*,
 };
 
-/// Closes an expired excavation account. Returns rent to payer, unclaimed SOL to treasury.
+/// Closes an expired or stale excavation account.
 pub fn process_close(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult {
     let clock = Clock::get()?;
 
@@ -26,10 +26,13 @@ pub fn process_close(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult {
 
     let excavation = excavation_info.as_account::<Excavation>(&localuniverse_api::ID)?;
 
-    // Must be past tick and expired
     assert!(excavation.id < grid.tick_id, "Excavation is current tick");
-    assert!(clock.slot >= excavation.expires_at, "Excavation not expired");
     assert!(excavation.rent_payer == *rent_payer_info.key, "Wrong rent payer");
+
+    // Can close if expired OR stale (unprocessed and old)
+    let is_expired = clock.slot >= excavation.expires_at;
+    let is_stale = !excavation.is_processed() && excavation.id + 1 < grid.tick_id;
+    assert!(is_expired || is_stale, "Excavation not expired or stale");
 
     let dimension_id = excavation.dimension_id;
     let excavation_id = excavation.id;
@@ -46,19 +49,16 @@ pub fn process_close(accounts: &[AccountInfo], _data: &[u8]) -> ProgramResult {
         .is_writable()?
         .has_seeds(&[TREASURY], &localuniverse_api::ID)?;
 
-    // Calculate unclaimed SOL (anything above rent minimum)
     let size = 8 + std::mem::size_of::<Excavation>();
     let min_rent = Rent::get()?.minimum_balance(size);
     let unclaimed_sol = excavation_info.lamports().saturating_sub(min_rent);
 
-    // Send unclaimed SOL to treasury
     if unclaimed_sol > 0 {
         excavation_info.send(unclaimed_sol, treasury_info);
         let treasury = treasury_info.as_account_mut::<Treasury>(&localuniverse_api::ID)?;
         treasury.sol_balance += unclaimed_sol;
     }
 
-    // Close excavation account, return rent to payer
     excavation_info.close(rent_payer_info)?;
 
     Ok(())

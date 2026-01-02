@@ -50,6 +50,7 @@ async fn main() {
         "automate" => automate(&rpc, &payer).await.unwrap(),
         "reload-sol" => reload_sol(&rpc, &payer).await.unwrap(),
         "fund_treasury" => fund_treasury(&rpc, &payer).await.unwrap(),
+        "set_scan_fee" => set_scan_fee(&rpc, &payer).await.unwrap(),
         "keys" => keys().await.unwrap(),
         _ => panic!("Invalid command"),
     };
@@ -58,6 +59,7 @@ async fn main() {
 // ============================================================================
 // Logging commands
 // ============================================================================
+
 
 async fn log_clock(rpc: &RpcClient) -> Result<(), anyhow::Error> {
     let clock = get_clock(rpc).await?;
@@ -73,6 +75,8 @@ async fn log_config(rpc: &RpcClient) -> Result<(), anyhow::Error> {
     println!("Config");
     println!("  address: {}", config_address);
     println!("  admin: {}", config.admin);
+    println!("  fee_collector: {}", config.fee_collector);
+    println!("  scan_fee: {} SOL", lamports_to_sol(config.scan_fee));
     Ok(())
 }
 
@@ -632,6 +636,18 @@ async fn fund_treasury(
     let ix = localuniverse_api::sdk::fund_treasury(payer.pubkey(), amount);
     submit_transaction(rpc, payer, &[ix]).await?;
     println!("Funded treasury with {} LUXITE!", amount);
+    Ok(())
+}
+
+async fn set_scan_fee(
+    rpc: &RpcClient,
+    payer: &solana_sdk::signer::keypair::Keypair,
+) -> Result<(), anyhow::Error> {
+    let fee = std::env::var("FEE").expect("Missing FEE env var");
+    let fee = u64::from_str(&fee).expect("Invalid FEE");
+    let ix = localuniverse_api::sdk::set_scan_fee(payer.pubkey(), fee);
+    submit_transaction(rpc, payer, &[ix]).await?;
+    println!("Set scan fee to {} SOL!", lamports_to_sol(fee));
     Ok(())
 }
 

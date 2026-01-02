@@ -33,6 +33,7 @@ pub enum LocalUniverseInstruction {
     Buyback = 102,
     Wrap = 103,
     FundTreasury = 104,
+    SetScanFee = 105
 }
 
 #[repr(C)]
@@ -136,6 +137,12 @@ pub struct FundTreasury {
     pub amount: [u8; 8],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Pod, Zeroable)]
+pub struct SetScanFee {
+    pub scan_fee: [u8; 8],
+}
+
 instruction!(LocalUniverseInstruction, Scan);
 instruction!(LocalUniverseInstruction, Tick);
 instruction!(LocalUniverseInstruction, Excavate);
@@ -155,3 +162,4 @@ instruction!(LocalUniverseInstruction, SetAdmin);
 instruction!(LocalUniverseInstruction, Wrap);
 instruction!(LocalUniverseInstruction, Buyback);
 instruction!(LocalUniverseInstruction, FundTreasury);
+instruction!(LocalUniverseInstruction, SetScanFee);

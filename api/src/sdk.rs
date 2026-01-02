@@ -472,3 +472,19 @@ pub fn fund_treasury(signer: Pubkey, amount: u64) -> Instruction {
         .to_bytes(),
     }
 }
+
+/// Builds a SetScanFee instruction (admin only).
+pub fn set_scan_fee(signer: Pubkey, scan_fee: u64) -> Instruction {
+    let config_address = config_pda().0;
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(signer, true),
+            AccountMeta::new(config_address, false),
+        ],
+        data: SetScanFee {
+            scan_fee: scan_fee.to_le_bytes(),
+        }
+        .to_bytes(),
+    }
+}

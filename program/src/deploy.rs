@@ -87,12 +87,10 @@ pub fn process_deploy(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
             .assert(|a| a.authority == *authority_info.key)?
             .assert(|a| a.dimension_id == dimension_id)?;
 
-        // Use automation amount
         amount = automation.amount;
 
         Some(automation_info)
     } else {
-        // No automation - signer must be authority
         assert!(
             *signer_info.key == *authority_info.key,
             "Signer must be authority when no automation"
@@ -169,29 +167,28 @@ pub fn process_deploy(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
     let miner = miner_info.as_account_mut::<Miner>(&localuniverse_api::ID)?;
 
     // Verify miner authority
-    if let Some(_) = &automation {
+    if automation.is_some() {
         assert!(miner.authority == *authority_info.key, "Miner authority mismatch");
     } else {
         assert!(miner.authority == *signer_info.key, "Not authorized");
     }
 
-    // Must checkpoint previous excavation before deploying to new one
-    assert!(
-        miner.checkpoint_id == miner.excavation_id || miner.excavation_id == 0,
-        "Must checkpoint before deploying to new excavation"
-    );
-
-    // Reset deployed if new excavation
+    // Handle excavation transition
     if miner.excavation_id != grid.tick_id {
+        // Require checkpoint before moving to new excavation (skip if first ever deploy)
+        assert!(
+            miner.checkpoint_id == miner.excavation_id || miner.excavation_id == 0,
+            "Must checkpoint before deploying to new excavation"
+        );
+
         miner.deployed = 0;
         miner.excavation_id = grid.tick_id;
     }
 
-    // Can only deploy once per excavation
-    assert!(miner.deployed == 0, "Already deployed this tick");
-
+    // Track if this is miner's first deploy this excavation (for miner count)
     let is_first_deploy = miner.deployed == 0;
 
+    // Update miner totals
     miner.deployed += amount_after_fee;
     miner.lifetime_deployed += amount_after_fee;
 
@@ -224,27 +221,19 @@ pub fn process_deploy(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
 
     // Transfer SOL
     if let Some(auto_info) = automation {
-        // Calculate automation fee
         let automation = auto_info.as_account_mut::<Automation>(&localuniverse_api::ID)?;
         let automation_fee = automation.fee;
 
-        // Check sufficient balance
         let total_needed = amount + automation_fee;
         assert!(
             automation.balance >= total_needed,
             "Insufficient automation balance"
         );
 
-        // Deduct from automation balance
         automation.balance -= total_needed;
 
-        // Transfer fee to treasury (from automation)
         auto_info.send(fee, treasury_info);
-
-        // Transfer SOL to excavation (from automation)
         auto_info.send(amount_after_fee, excavation_info);
-
-        // Pay executor fee
         auto_info.send(automation_fee, signer_info);
 
         // Close automation if balance too low for another deploy
@@ -259,13 +248,11 @@ pub fn process_deploy(accounts: &[AccountInfo], data: &[u8]) -> ProgramResult {
             lamports_to_sol(automation_fee)
         ));
     } else {
-        // Transfer fee to treasury (from signer)
         solana_program::program::invoke(
             &solana_program::system_instruction::transfer(signer_info.key, treasury_info.key, fee),
             &[signer_info.clone(), treasury_info.clone()],
         )?;
 
-        // Transfer SOL to excavation (from signer)
         solana_program::program::invoke(
             &solana_program::system_instruction::transfer(
                 signer_info.key,

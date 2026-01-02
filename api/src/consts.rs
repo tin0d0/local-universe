@@ -118,7 +118,7 @@ pub const COMPOUND_FEE_PER_TRANSACTION: u64 = 7_000;
 pub const ADMIN_FEE: u64 = 300; // 3%
                                 
 /// The fee paid to the admin for each dimension scan.
-pub const DIMENSION_SCAN_FEE: u64 = 1_000_000_000; // 0.1 SOL
+pub const DIMENSION_SCAN_FEE: u64 = 100_000_000; // 0.1 SOL
 
 /// The address to receive the admin fee.
 pub const ADMIN_FEE_COLLECTOR: Pubkey = pubkey!("Eb3BaMhYbcgcuFUnxtEkVzeFMpppLyFHQeEiM4XgGDJ5");

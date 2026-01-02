@@ -103,6 +103,9 @@ devnet-automate-close:
 devnet-reload-sol:
 	@RPC=$(RPC_DEVNET) COMMAND=reload-sol ID=$(ID) AUTHORITY=$(AUTHORITY) $(CLI)
 
+devnet-set-scan-fee:
+	@RPC=$(RPC_DEVNET) COMMAND=set_scan_fee FEE=$(FEE) $(CLI)
+
 # ============================================================================
 # Mainnet Commands
 # ============================================================================
@@ -181,6 +184,9 @@ mainnet-automate-close:
 
 mainnet-reload-sol:
 	@RPC=$(RPC_MAINNET) COMMAND=reload-sol ID=$(ID) AUTHORITY=$(AUTHORITY) $(CLI)
+
+mainnet-set-scan-fee:
+	@RPC=$(RPC_MAINNET) COMMAND=set_scan_fee FEE=$(FEE) $(CLI)
 
 # ============================================================================
 # Test Flow (Devnet)
